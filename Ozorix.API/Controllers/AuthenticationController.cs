@@ -8,6 +8,7 @@ using Ozorix.Application.Authentication.Common;
 using Ozorix.Application.Authentication.Queries.Login;
 using Ozorix.Contracts.Authentication;
 using Ozorix.Domain.Common.DomainErrors;
+using Ozorix.Domain.UserAggregate.Events;
 
 namespace Ozorix.Api.Controllers;
 
@@ -15,10 +16,10 @@ namespace Ozorix.Api.Controllers;
 [AllowAnonymous]
 public class AuthenticationController : ApiController
 {
-    private readonly ISender _mediator;
     private readonly IMapper _mapper;
+    private readonly IMediator _mediator;
 
-    public AuthenticationController(ISender mediator, IMapper mapper)
+    public AuthenticationController(ISender sender, IMapper mapper,IMediator mediator)
     {
         _mediator = mediator;
         _mapper = mapper;
@@ -48,8 +49,15 @@ public class AuthenticationController : ApiController
                 title: authResult.FirstError.Description);
         }
 
-        return authResult.Match(
+        var response = authResult.Match(
             authResult => Ok(_mapper.Map<AuthenticationResponse>(authResult)),
             errors => Problem(errors));
+
+        if (authResult.IsError == false)
+        {
+            await _mediator.Publish(new UserLoggedInEvent(authResult.Value.User.Id.Value.ToString()));
+        }
+
+        return response;
     }
 }

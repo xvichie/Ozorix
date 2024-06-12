@@ -16,7 +16,7 @@ public class OzorixDbContext : DbContext
         _publishDomainEventsInterceptor = publishDomainEventsInterceptor;
     }
 
-    public DbSet<FsNode> FsNodes { get; set; } = null!;
+    //public DbSet<FsNode> FsNodes { get; set; } = null!;
     public DbSet<User> Users { get; set; } = null!;
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

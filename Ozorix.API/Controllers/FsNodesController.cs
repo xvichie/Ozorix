@@ -1,4 +1,5 @@
-﻿using MapsterMapper;
+﻿using ErrorOr;
+using MapsterMapper;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,9 @@ using Ozorix.Application.FsNodes.Commands.DeleteDirectory;
 using Ozorix.Application.FsNodes.Commands.DeleteFile;
 using Ozorix.Application.FsNodes.Commands.MoveDirectory;
 using Ozorix.Application.FsNodes.Commands.MoveFile;
+using Ozorix.Application.FsNodes.Commands.SetWorkingDirectory;
 using Ozorix.Application.FsNodes.Commands.WriteFile;
+using Ozorix.Application.FsNodes.Queries.GetCurrentDirectory;
 using Ozorix.Application.FsNodes.Queries.GetInfo;
 using Ozorix.Application.FsNodes.Queries.ListDirectory;
 using Ozorix.Application.FsNodes.Queries.ReadFile;
@@ -20,10 +23,12 @@ using Ozorix.Contracts.FsNodes.CreateDirectory;
 using Ozorix.Contracts.FsNodes.DeleteDirectory;
 using Ozorix.Contracts.FsNodes.DeleteFile;
 using Ozorix.Contracts.FsNodes.GetInfo;
+using Ozorix.Contracts.FsNodes.GetWorkingDirectory;
 using Ozorix.Contracts.FsNodes.ListDirectory;
 using Ozorix.Contracts.FsNodes.MoveDirectory;
 using Ozorix.Contracts.FsNodes.MoveFile;
 using Ozorix.Contracts.FsNodes.ReadFile;
+using Ozorix.Contracts.FsNodes.SetWorkingDirectory;
 using Ozorix.Contracts.FsNodes.WriteFile;
 
 namespace Ozorix.API.Controllers;
@@ -175,6 +180,28 @@ public class FsNodesController : ApiController
 
         return getInfoResult.Match(
             info => Ok(_mapper.Map<GetInfoResponse>(info)),
+            errors => Problem(errors));
+    }
+
+    [HttpPost("setWorkingDirectory")]
+    public async Task<IActionResult> SetWorkingDirectory(SetWorkingDirectoryRequest request)
+    {
+        var command = _mapper.Map<SetWorkingDirectoryCommand>(request);
+        ErrorOr<Unit> result = await _mediator.Send(command);
+
+        return result.Match(
+            _ => Ok(),
+            errors => Problem(errors));
+    }
+
+    [HttpGet("getCurrentDirectory")]
+    public async Task<IActionResult> GetCurrentDirectory([FromQuery] GetWorkingDirectoryRequest request)
+    {
+        var query = _mapper.Map<GetWorkingDirectoryQuery>(request);
+        ErrorOr<string> result = await _mediator.Send(query);
+
+        return result.Match(
+            currentDirectory => Ok(new { CurrentDirectory = currentDirectory }),
             errors => Problem(errors));
     }
 }

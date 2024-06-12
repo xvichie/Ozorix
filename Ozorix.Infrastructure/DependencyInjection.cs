@@ -27,26 +27,30 @@ public static class DependencyInjection
     {
         services
             .AddAuth(configuration)
-            .AddPersistance();
+            .AddPersistance(configuration)
+            .AddAWS(configuration);
 
         services.AddSingleton<IDateTimeProvider, DateTimeProvider>();
 
-        services.AddAWS(configuration);
-
         services.AddMemoryCache();
+        services.AddSingleton<IUserCacheService, UserCacheService>();
 
         return services;
     }
 
     public static IServiceCollection AddPersistance(
-        this IServiceCollection services)
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        var connectionString = configuration.GetConnectionString("DefaultConnection");
+
         services.AddDbContext<OzorixDbContext>(options =>
-            options.UseSqlServer("Server=localhost;Database=Ozorix;User Id=SA;Password=amiko123!;TrustServerCertificate=true"));
+            options.UseSqlServer(connectionString));
 
         services.AddScoped<PublishDomainEventsInterceptor>();
+
         services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<IUserRepository, UserRepository>();
+
         services.AddScoped<IFsNodeRepository, FsNodeRepository>();
 
         return services;
@@ -109,16 +113,6 @@ public static class DependencyInjection
             var bucketName = configuration.GetValue<string>("AWS:BucketName");
             return new S3FsService(s3Client, bucketName);
         });
-
-        return services;
-    }
-
-    public static IServiceCollection AddMemoryCache(
-        this IServiceCollection services,
-        IConfiguration configuration
-        )
-    {
-        services.AddSingleton<IUserCacheService, UserCacheService>();
 
         return services;
     }

@@ -15,6 +15,7 @@ public class UserLoggedInEventHandler(IUserCacheService UserCacheService)
     public Task Handle(UserLoggedInEvent notification, CancellationToken cancellationToken)
     {
         UserCacheService.AddUser(notification.UserId);
+        UserCacheService.SetCurrentDirectory(notification.UserId, notification.UserId);
         return Task.CompletedTask;
     }
 }

@@ -9,43 +9,59 @@ using System.Threading.Tasks;
 
 namespace Ozorix.Infrastructure.Services;
 
-public class UserCacheService(IMemoryCache cache) : IUserCacheService
+public class UserCacheService(IMemoryCache MemoryCache) : IUserCacheService
 {
-    private const string UserCacheKey = "UserCacheKey";
+    private const string UserCacheKey = "UserCache";
+    private readonly Dictionary<string, string> _userDirectories = new();
 
     public void AddUser(string userId)
     {
-        var users = GetAllUsers();
+        var users = MemoryCache.Get<List<string>>(UserCacheKey) ?? new List<string>();
         if (!users.Contains(userId))
         {
             users.Add(userId);
-            cache.Set(UserCacheKey, users);
+            MemoryCache.Set(UserCacheKey, users);
         }
     }
 
     public void RemoveUser(string userId)
     {
-        var users = GetAllUsers();
+        var users = MemoryCache.Get<List<string>>(UserCacheKey) ?? new List<string>();
         if (users.Contains(userId))
         {
             users.Remove(userId);
-            cache.Set(UserCacheKey, users);
+            MemoryCache.Set(UserCacheKey, users);
+        }
+
+        if (_userDirectories.ContainsKey(userId))
+        {
+            _userDirectories.Remove(userId);
         }
     }
 
     public bool IsUserCached(string userId)
     {
-        var users = GetAllUsers();
+        var users = MemoryCache.Get<List<string>>(UserCacheKey) ?? new List<string>();
         return users.Contains(userId);
+    }
+
+    public string GetCurrentDirectory(string userId)
+    {
+        _userDirectories.TryGetValue(userId, out var currentDirectory);
+        return currentDirectory ?? userId;
+    }
+
+    public void SetCurrentDirectory(string userId, string currentDirectory)
+    {
+        if (!currentDirectory.StartsWith(userId))
+        {
+            currentDirectory = $"{userId}/{currentDirectory}".TrimEnd('/');
+        }
+        _userDirectories[userId] = currentDirectory;
     }
 
     public List<string> GetAllUsers()
     {
-        if (!cache.TryGetValue(UserCacheKey, out List<string> users))
-        {
-            users = new List<string>();
-            cache.Set(UserCacheKey, users);
-        }
-        return users;
+        return MemoryCache.Get<List<string>>(UserCacheKey) ?? new List<string>();
     }
 }
