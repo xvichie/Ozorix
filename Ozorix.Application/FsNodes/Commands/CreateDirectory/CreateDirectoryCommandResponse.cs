@@ -6,4 +6,4 @@ using System.Threading.Tasks;
 
 namespace Ozorix.Application.FsNodes.Commands.CreateDirectory;
 
-public record CreateDirectoryCommandResponse();
+public record CreateDirectoryCommandResponse(string Path);

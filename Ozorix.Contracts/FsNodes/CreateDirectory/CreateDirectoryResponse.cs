@@ -1,9 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Ozorix.Contracts.FsNodes.CreateDirectory;
 
-namespace Ozorix.Contracts.FsNodes.CreateDirectory;
-
-public record CreateDirectoryResponse();
+public record CreateDirectoryResponse(string Path);

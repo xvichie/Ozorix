@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace Ozorix.Application.FsNodes.Queries.GetInfo;
+﻿namespace Ozorix.Application.FsNodes.Queries.GetInfo;
 
 public record GetInfoQueryResponse(
     string Name,

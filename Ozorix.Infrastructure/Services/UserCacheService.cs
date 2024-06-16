@@ -42,6 +42,7 @@ public class UserCacheService(IMemoryCache MemoryCache) : IUserCacheService
     public bool IsUserCached(string userId)
     {
         var users = MemoryCache.Get<List<string>>(UserCacheKey) ?? new List<string>();
+        Console.WriteLine(users.Contains(userId));
         return users.Contains(userId);
     }
 

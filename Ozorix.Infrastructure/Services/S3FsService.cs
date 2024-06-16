@@ -1,97 +1,110 @@
-﻿using Amazon.S3.Model;
+﻿using Amazon.S3;
+using Amazon.S3.Model;
 using Amazon.S3.Transfer;
-using Amazon.S3;
+using HeyRed.Mime;
+using Microsoft.AspNetCore.Http;
 using Ozorix.Application.Common.Interfaces.Services;
 using Ozorix.Domain.FsNodeAggregate;
 using Ozorix.Domain.UserAggregate.ValueObjects;
-using Microsoft.Extensions.Caching.Memory;
-using HeyRed.Mime;
-using Microsoft.AspNetCore.Http;
+using System.IO;
 
 public class S3FsService : IFsService
 {
     private readonly IAmazonS3 _s3Client;
     private readonly string _bucketName;
+    private readonly IUserCacheService _userCacheService;
 
-    public S3FsService(IAmazonS3 s3Client, string bucketName)
+    public S3FsService(IAmazonS3 s3Client, string bucketName, IUserCacheService userCacheService)
     {
         _s3Client = s3Client;
         _bucketName = bucketName;
+        _userCacheService = userCacheService;
     }
-    
-    public async Task CreateDirectory(string path)
+
+    private string GetUserDirectory(string path, string userId)
     {
-        if (!await DirectoryExists(path))
+        var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
+        return $"{currentDirectory}/{path}".TrimEnd('/');
+    }
+
+    public async Task CreateDirectory(string path, string userId)
+    {
+        var fullPath = GetUserDirectory(path, userId);
+        if (!await DirectoryExists(fullPath))
         {
-            await PutObjectAsync($"{path}/");
+            await PutObjectAsync($"{fullPath}/");
         }
     }
 
-    public async Task DeleteDirectory(string path)
+    public async Task DeleteDirectory(string path, string userId)
     {
-        var objects = await ListObjectsAsync(path);
+        var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
+        var fullPath = NormalizePath(currentDirectory, path);
 
-        // Include the directory marker itself
-        if (!path.EndsWith("/"))
+        if (!fullPath.EndsWith("/"))
         {
-            path += "/";
+            fullPath += "/";
         }
-        var directoryMarker = new S3Object { Key = path };
-        objects.Add(directoryMarker);
+
+        var objects = await ListObjectsAsync(fullPath);
 
         if (objects.Any())
         {
+            // Add the directory marker for deletion
+            var directoryMarker = new S3Object { Key = fullPath };
+            objects.Add(directoryMarker);
+
             await DeleteObjectsAsync(objects);
         }
     }
 
-    public async Task CopyDirectory(string path, string newPath)
+
+    public async Task CopyDirectory(string path, string newPath, string userId)
     {
+        var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
+        var fullPath = Path.Combine(currentDirectory, path).Replace("\\", "/");
+        var fullNewPath = Path.Combine(currentDirectory, newPath).Replace("\\", "/");
+
         // Ensure paths end with a slash
-        if (!path.EndsWith("/"))
+        if (!fullPath.EndsWith("/"))
         {
-            path += "/";
+            fullPath += "/";
         }
 
-        if (!newPath.EndsWith("/"))
+        if (!fullNewPath.EndsWith("/"))
         {
-            newPath += "/";
+            fullNewPath += "/";
         }
 
-        var objects = await ListObjectsAsync(path);
+        var objects = await ListObjectsAsync(fullPath);
 
         foreach (var obj in objects)
         {
-            // Calculate the relative path from the source directory
-            var relativePath = obj.Key.Substring(path.Length);
-            // Construct the new key with the newPath + original directory name
-            var newKey = $"{newPath}{path}{relativePath}";
+            var relativePath = obj.Key.Substring(fullPath.Length);
+            var newKey = Path.Combine(fullNewPath, relativePath).Replace("\\", "/");
 
             await CopyObjectAsync(obj.Key, newKey);
         }
 
-        // Ensure the directory marker is copied if it exists
-        await PutObjectAsync($"{newPath}{path}");
+        await PutObjectAsync(fullNewPath);
     }
 
-
-
-    public async Task MoveDirectory(string path, string newPath)
+    public async Task MoveDirectory(string path, string newPath, string userId)
     {
-        await CopyDirectory(path, newPath);
-        await DeleteDirectory(path);
+        await CopyDirectory(path, newPath, userId);
+        await DeleteDirectory(path, userId);
     }
 
     public async Task<FsNode[]> ListDirectory(string path, string userId)
     {
-        if (!path.EndsWith("/"))
+        var fullPath = GetUserDirectory(path, userId);
+        if (!fullPath.EndsWith("/"))
         {
-            path += "/";
+            fullPath += "/";
         }
 
-        var objects = await ListObjectsAsync(path);
-
-        var parsedUserId = UserId.Create(Guid.Parse(userId)); // Parse and create UserId object
+        var objects = await ListObjectsAsync(fullPath);
+        var parsedUserId = UserId.Create(Guid.Parse(userId));
 
         var fsNodes = objects.Select(o =>
         {
@@ -101,29 +114,24 @@ public class S3FsService : IFsService
                 name: Path.GetFileName(o.Key.TrimEnd('/')),
                 path: o.Key,
                 size: (int)o.Size,
-                mimeType: mimeType, // Determine MIME type
-                userId: parsedUserId // Use the parsed UserId object,
+                mimeType: mimeType,
+                userId: parsedUserId
             );
         }).ToArray();
 
         return fsNodes;
     }
 
-
     public async Task WriteFile(string path, IFormFile file, string userId)
     {
-        var parsedUserId = UserId.Create(Guid.Parse(userId)); // Parse and create UserId object
-
-        // Create the metadata for the file
+        var fullPath = GetUserDirectory(path, userId);
+        var key = Path.Combine(fullPath, file.FileName).Replace("\\", "/");
         var metadata = new Dictionary<string, string>
-    {
-        { "UserId", parsedUserId.Value.ToString() }
-    };
+        {
+            { "UserId", userId }
+        };
 
-        // Combine the path and the file name to create the full key
-        var key = Path.Combine(path.Trim('/'), file.FileName);
-
-        await UploadFileAsync(key.Replace("\\", "/"), file, metadata); // Ensure the key uses forward slashes
+        await UploadFileAsync(key, file, metadata);
     }
 
     private async Task UploadFileAsync(string key, IFormFile file, Dictionary<string, string> metadata)
@@ -135,10 +143,9 @@ public class S3FsService : IFsService
                 InputStream = stream,
                 Key = key,
                 BucketName = _bucketName,
-                ContentType = file.ContentType // Use the file's content type
+                ContentType = file.ContentType
             };
 
-            // Add metadata
             foreach (var kvp in metadata)
             {
                 uploadRequest.Metadata.Add(kvp.Key, kvp.Value);
@@ -149,11 +156,10 @@ public class S3FsService : IFsService
         }
     }
 
-
-
-    public async Task<byte[]> ReadFile(string path)
+    public async Task<byte[]> ReadFile(string path, string userId)
     {
-        using (var response = await _s3Client.GetObjectAsync(_bucketName, path))
+        var fullPath = GetUserDirectory(path, userId);
+        using (var response = await _s3Client.GetObjectAsync(_bucketName, fullPath))
         using (var memoryStream = new MemoryStream())
         {
             await response.ResponseStream.CopyToAsync(memoryStream);
@@ -161,79 +167,85 @@ public class S3FsService : IFsService
         }
     }
 
-    public async Task DeleteFile(string path)
+
+    public async Task CopyFile(string path, string newPath, string userId)
     {
+        var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
+        var fullPath = NormalizePath(currentDirectory, path);
+        var fullNewPath = NormalizePath(currentDirectory, newPath);
+
+        // Ensure newPath ends with a slash if it's a directory
+        if (!fullNewPath.EndsWith("/"))
+        {
+            fullNewPath = $"{fullNewPath.TrimEnd('/')}/{Path.GetFileName(fullPath)}";
+        }
+
+        await CopyObjectAsync(fullPath, fullNewPath);
+    }
+
+    public async Task MoveFile(string path, string newPath, string userId)
+    {
+        await CopyFile(path, newPath, userId);
+        await DeleteFile(path, userId);
+    }
+
+    private string NormalizePath(string basePath, string relativePath)
+    {
+        if (string.IsNullOrWhiteSpace(basePath))
+        {
+            throw new ArgumentException("Base path cannot be null or empty", nameof(basePath));
+        }
+
+        if (string.IsNullOrWhiteSpace(relativePath))
+        {
+            throw new ArgumentException("Relative path cannot be null or empty", nameof(relativePath));
+        }
+
+        // Ensure basePath ends with a slash
+        if (!basePath.EndsWith("/"))
+        {
+            basePath += "/";
+        }
+
+        // Combine the base path and relative path
+        //var combinedUri = new Uri(new Uri(basePath, UriKind.RelativeOrAbsolute), relativePath);
+        return Path.Combine(basePath, relativePath).Replace("\\", "/");
+    }
+
+    // Ensure DeleteFile accepts userId
+    public async Task DeleteFile(string path, string userId)
+    {
+        var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
+        var fullPath = NormalizePath(currentDirectory, path);
         var deleteRequest = new DeleteObjectRequest
         {
             BucketName = _bucketName,
-            Key = path
+            Key = fullPath
         };
         await _s3Client.DeleteObjectAsync(deleteRequest);
     }
 
-    public async Task CopyFile(string path, string newPath)
+    public async Task<FsNode> GetInfo(string path, string userId)
     {
-        // Check if newPath is a directory by checking if it ends with a slash
-        if (!newPath.EndsWith("/"))
-        {
-            newPath += "/";
-        }
-
-        // Combine newPath with the file name from path
-        var fileName = System.IO.Path.GetFileName(path);
-        var destinationKey = newPath + fileName;
-
-        var copyRequest = new CopyObjectRequest
-        {
-            SourceBucket = _bucketName,
-            SourceKey = path,
-            DestinationBucket = _bucketName,
-            DestinationKey = destinationKey
-        };
-        await _s3Client.CopyObjectAsync(copyRequest);
-    }
-
-    public async Task MoveFile(string path, string newPath)
-    {
-        await CopyFile(path, newPath);
-        await DeleteFile(path);
-    }
-
-    public async Task<FsNode> GetInfo(string path)
-    {
-        var metadataResponse = await _s3Client.GetObjectMetadataAsync(_bucketName, path);
-        var mimeType = MimeTypesMap.GetMimeType(path);
+        var fullPath = GetUserDirectory(path, userId);
+        var metadataResponse = await _s3Client.GetObjectMetadataAsync(_bucketName, fullPath);
+        var mimeType = MimeTypesMap.GetMimeType(fullPath);
 
         return FsNode.Create(
-            name: System.IO.Path.GetFileName(path),
-            path: path,
+            name: Path.GetFileName(fullPath),
+            path: fullPath,
             size: (int)metadataResponse.ContentLength,
             mimeType: mimeType,
-            userId: UserId.CreateUnique() // Adjust as needed
-            //createdDateTime: metadataResponse.LastModified,
-            //updatedDateTime: metadataResponse.LastModified
+            userId: UserId.Create(Guid.Parse(userId))
         );
     }
-
-    public Task SetWorkingDirectory(string path)
-    {
-        // S3 does not have a concept of a working directory, this would be client-side state management
-        throw new NotImplementedException();
-    }
-
-    public Task<string> GetWorkingDirectory()
-    {
-        // S3 does not have a concept of a working directory, this would be client-side state management
-        throw new NotImplementedException();
-    }
-
     private async Task<bool> DirectoryExists(string path)
     {
         var listResponse = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
         {
             BucketName = _bucketName,
             Prefix = $"{path}/",
-            MaxKeys = 1 // We only need to check if at least one object exists
+            MaxKeys = 1
         });
         return listResponse.S3Objects.Any();
     }
@@ -252,7 +264,7 @@ public class S3FsService : IFsService
     {
         if (objects == null || !objects.Any())
         {
-            throw new ArgumentException("No objects to delete");
+            throw new ArgumentException("No objects to delete", nameof(objects));
         }
 
         var deleteRequest = new DeleteObjectsRequest
@@ -268,52 +280,21 @@ public class S3FsService : IFsService
             if (response.DeleteErrors.Any())
             {
                 var errors = string.Join(", ", response.DeleteErrors.Select(e => $"{e.Key}: {e.Message}"));
-                throw new Exception($"Failed to delete some objects: {errors}");
+                throw new AmazonS3Exception($"Failed to delete some objects: {errors}");
             }
         }
         catch (AmazonS3Exception ex)
         {
             // Log the exception details for troubleshooting
             Console.WriteLine($"AmazonS3Exception: {ex.Message}");
-            Console.WriteLine($"Error Code: {ex.ErrorCode}");
-            Console.WriteLine($"Request ID: {ex.RequestId}");
-            Console.WriteLine($"Status Code: {ex.StatusCode}");
             throw;
         }
-    }
-
-    private async Task UploadFileAsync(string key, byte[] content)
-    {
-        using (var stream = new MemoryStream(content))
+        catch (Exception ex)
         {
-            var uploadRequest = new TransferUtilityUploadRequest
-            {
-                InputStream = stream,
-                Key = key,
-                BucketName = _bucketName
-            };
-            var fileTransferUtility = new TransferUtility(_s3Client);
-            await fileTransferUtility.UploadAsync(uploadRequest);
+            // Log the exception details for troubleshooting
+            Console.WriteLine($"Exception: {ex.Message}");
+            throw;
         }
-    }
-
-    private async Task<string> GetObjectContentAsync(string key)
-    {
-        var response = await _s3Client.GetObjectAsync(_bucketName, key);
-        using (var reader = new StreamReader(response.ResponseStream))
-        {
-            return await reader.ReadToEndAsync();
-        }
-    }
-
-    private async Task DeleteObjectAsync(string key)
-    {
-        var deleteRequest = new DeleteObjectRequest
-        {
-            BucketName = _bucketName,
-            Key = key
-        };
-        await _s3Client.DeleteObjectAsync(deleteRequest);
     }
 
     private async Task CopyObjectAsync(string sourceKey, string destinationKey)
@@ -338,18 +319,40 @@ public class S3FsService : IFsService
         await _s3Client.PutObjectAsync(putRequest);
     }
 
-    private async Task<GetObjectMetadataResponse> GetObjectMetadataAsync(string key)
+    public async Task<bool> KeyExists(string key, string userId)
     {
-        return await _s3Client.GetObjectMetadataAsync(_bucketName, key);
-    }
+        var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
+        var fullPath = Path.Combine(currentDirectory, key).Replace("\\", "/");
 
-    public Task<string> ReadFile(string path, byte[] content)
-    {
-        throw new NotImplementedException();
-    }
+        try
+        {
+            await _s3Client.GetObjectMetadataAsync(_bucketName, fullPath);
+            return true;
+        }
+        catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
+        {
+            // If the key ends with a slash, it's intended to be a folder
+            if (fullPath.EndsWith("/"))
+            {
+                // Check if any objects exist with this prefix
+                var listResponse = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
+                {
+                    BucketName = _bucketName,
+                    Prefix = fullPath,
+                    MaxKeys = 1
+                });
 
-    public Task DeleteFile()
-    {
-        throw new NotImplementedException();
+                if (listResponse.S3Objects.Any())
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+        catch (Exception ex)
+        {
+            throw;
+        }
     }
 }

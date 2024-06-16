@@ -14,6 +14,6 @@ public class UserRegisteredEventHandler(IFsService S3FsService)
 {
     public async Task Handle(UserRegisteredEvent notification, CancellationToken cancellationToken)
     {
-        await S3FsService.CreateDirectory(notification.UserId);
+        await S3FsService.CreateDirectory(notification.UserId, notification.UserId);
     }
 }

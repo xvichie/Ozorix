@@ -1,29 +1,19 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Ozorix.Domain.FsNodeAggregate;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
-
-namespace Ozorix.Application.Common.Interfaces.Services;
 
 public interface IFsService
 {
-	Task CreateDirectory(string path);
-	Task DeleteDirectory(string path);
-	Task CopyDirectory(string path, string newPath);
-	Task MoveDirectory(string path, string newPath);
-	Task<FsNode[]> ListDirectory(string path, string userId);
-	Task WriteFile(string path, IFormFile file, string userId);
-	Task<byte[]> ReadFile(string path);
-	Task DeleteFile(string path);
-	Task CopyFile(string path, string newPath);
-	Task MoveFile(string path, string newPath);
-	Task<FsNode> GetInfo(string path);
-	Task SetWorkingDirectory(string path);
-	Task<string> GetWorkingDirectory();
+    Task CreateDirectory(string path, string userId);
+    Task DeleteDirectory(string path, string userId);
+    Task CopyDirectory(string path, string newPath, string userId);
+    Task MoveDirectory(string path, string newPath, string userId);
+    Task<FsNode[]> ListDirectory(string path, string userId);
+    Task WriteFile(string path, IFormFile file, string userId);
+    Task<byte[]> ReadFile(string path, string userId);
+    Task DeleteFile(string path, string userId);
+    Task CopyFile(string path, string newPath, string userId);
+    Task MoveFile(string path, string newPath, string userId);
+    Task<FsNode> GetInfo(string path, string userId);
+    Task<bool> KeyExists(string key, string userId);
+
 }

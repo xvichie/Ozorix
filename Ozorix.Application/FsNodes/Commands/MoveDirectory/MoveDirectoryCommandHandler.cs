@@ -1,21 +1,31 @@
 ﻿using ErrorOr;
 using MediatR;
 using Ozorix.Application.Common.Interfaces.Services;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using Ozorix.Application.FsNodes.Commands.CreateDirectory;
+using Errors = Ozorix.Domain.Common.DomainErrors.Errors;
 
 namespace Ozorix.Application.FsNodes.Commands.MoveDirectory;
 
-public class MoveDirectoryCommandHandler(IFsService S3FsService)
+public class MoveDirectoryCommandHandler(IFsService S3FsService, IUserCacheService UserCacheService)
     : IRequestHandler<MoveDirectoryCommand, ErrorOr<MoveDirectoryCommandResponse>>
 {
     public async Task<ErrorOr<MoveDirectoryCommandResponse>> Handle(MoveDirectoryCommand request, CancellationToken cancellationToken)
     {
-        await S3FsService.MoveDirectory(request.Path, request.NewPath);
+        if (!UserCacheService.IsUserCached(request.UserId))
+        {
+            return Errors.User.UserNotFoundInCache;
+        }
 
-        return new MoveDirectoryCommandResponse();
+        if (!await S3FsService.KeyExists(request.Path, request.UserId))
+        {
+            return Errors.Fs.PathNotFound;
+        }
+
+        await S3FsService.MoveDirectory(request.Path, request.NewPath, request.UserId);
+
+
+        return new MoveDirectoryCommandResponse(
+            UserCacheService.GetCurrentDirectory(request.UserId) + '/' + request.NewPath
+        );
     }
 }

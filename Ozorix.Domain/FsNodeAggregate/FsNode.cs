@@ -15,8 +15,8 @@ public sealed class FsNode : AggregateRoot<FsNodeId, Guid>
     public DateTime CreatedDateTime { get; private set; }
     public DateTime UpdatedDateTime { get; private set; }
 
-    private FsNode(string name, string path, int size, string mimeType, 
-        UserId userId, FsNodeId? fsNodeId = null) 
+    private FsNode(string name, string path, int size, string mimeType,
+        UserId userId, FsNodeId? fsNodeId = null)
         : base(fsNodeId ?? FsNodeId.CreateUnique())
     {
         Name = name;

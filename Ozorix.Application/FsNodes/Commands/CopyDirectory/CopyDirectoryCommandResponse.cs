@@ -1,3 +1,4 @@
 ﻿namespace Ozorix.Application.FsNodes.Commands.CopyDirectory;
 
-public record CopyDirectoryCommandResponse();
+public record CopyDirectoryCommandResponse(
+    string Path);

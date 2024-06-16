@@ -34,7 +34,8 @@ public class FsNodesMappingConfig : IRegister
     {
         config.NewConfig<CreateDirectoryCommandResponse, CreateDirectoryResponse>();
 
-        config.NewConfig<DeleteDirectoryCommandResponse, DeleteDirectoryResponse>();
+        config.NewConfig<DeleteDirectoryCommandResponse, DeleteDirectoryResponse>()
+            .Map(dest => dest.success, src => src.success);
 
         config.NewConfig<CopyDirectoryCommandResponse, CopyDirectoryResponse>();
 

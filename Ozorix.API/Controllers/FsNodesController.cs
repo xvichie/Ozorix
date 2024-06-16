@@ -66,7 +66,7 @@ public class FsNodesController : ApiController
         var deleteDirectoryResult = await _mediator.Send(command);
 
         return deleteDirectoryResult.Match(
-            directory => Ok(_mapper.Map<DeleteDirectoryResponse>(directory)),
+            success => Ok(_mapper.Map<DeleteDirectoryResponse>(success)),
             errors => Problem(errors));
     }
 
@@ -155,7 +155,7 @@ public class FsNodesController : ApiController
         var copyFileResult = await _mediator.Send(command);
 
         return copyFileResult.Match(
-            success => Ok(new CopyFileResponse(success.Success)),
+            response => Ok(new CopyFileResponse(response.Path)),
             errors => Problem(errors));
     }
 
@@ -167,7 +167,7 @@ public class FsNodesController : ApiController
         var moveFileResult = await _mediator.Send(command);
 
         return moveFileResult.Match(
-            success => Ok(new MoveFileResponse(success.Success)),
+            response => Ok(new MoveFileResponse(response.Path)),
             errors => Problem(errors));
     }
 

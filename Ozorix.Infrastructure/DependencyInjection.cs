@@ -111,7 +111,8 @@ public static class DependencyInjection
         {
             var s3Client = provider.GetRequiredService<IAmazonS3>();
             var bucketName = configuration.GetValue<string>("AWS:BucketName");
-            return new S3FsService(s3Client, bucketName);
+            var userCache = provider.GetRequiredService<IUserCacheService>();
+            return new S3FsService(s3Client, bucketName, userCache);
         });
 
         return services;

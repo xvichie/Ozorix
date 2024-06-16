@@ -6,4 +6,4 @@ using System.Threading.Tasks;
 
 namespace Ozorix.Contracts.FsNodes.CopyDirectory;
 
-public record CopyDirectoryResponse();
+public record CopyDirectoryResponse(string Path);

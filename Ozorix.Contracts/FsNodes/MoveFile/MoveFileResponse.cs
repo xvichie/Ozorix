@@ -1,9 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Ozorix.Contracts.FsNodes.MoveFile;
 
-namespace Ozorix.Contracts.FsNodes.MoveFile;
-
-public record MoveFileResponse(bool Success);
+public record MoveFileResponse(string Path);

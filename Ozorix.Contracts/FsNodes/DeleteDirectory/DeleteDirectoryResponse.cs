@@ -1,9 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿namespace Ozorix.Contracts.FsNodes.DeleteDirectory;
 
-namespace Ozorix.Contracts.FsNodes.DeleteDirectory;
-
-public record DeleteDirectoryResponse();
+public record DeleteDirectoryResponse(bool success);

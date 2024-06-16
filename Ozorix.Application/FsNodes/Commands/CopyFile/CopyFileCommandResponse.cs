@@ -6,4 +6,4 @@ using System.Threading.Tasks;
 
 namespace Ozorix.Application.FsNodes.Commands.CopyFile;
 
-public record CopyFileCommandResponse(bool Success);
+public record CopyFileCommandResponse(string Path);
