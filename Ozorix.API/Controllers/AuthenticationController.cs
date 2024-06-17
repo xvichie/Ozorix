@@ -3,6 +3,7 @@ using MapsterMapper;
 using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Ozorix.Application.Authentication.Commands.Logout;
 using Ozorix.Application.Authentication.Commands.Register;
 using Ozorix.Application.Authentication.Common;
 using Ozorix.Application.Authentication.Queries.Login;
@@ -57,6 +58,20 @@ public class AuthenticationController : ApiController
         {
             await _mediator.Publish(new UserLoggedInEvent(authResult.Value.User.Id.Value.ToString()));
         }
+
+        return response;
+    }
+
+    [HttpPost("logout")]
+    public async Task<IActionResult> Logout(LogoutRequest request)
+    {
+        var command = _mapper.Map<LogoutCommand>(request);
+        var authResult = await _mediator.Send(command);
+
+        var response = authResult.Match<IActionResult>(
+            success => Ok(success),
+            errors => Problem(detail: string.Join(", ", errors.Select(e => e.Description)), statusCode: 400)
+        );
 
         return response;
     }

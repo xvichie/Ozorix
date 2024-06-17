@@ -34,7 +34,7 @@ using Ozorix.Contracts.FsNodes.WriteFile;
 namespace Ozorix.API.Controllers;
 
 [Route("fsNodes")]
-[AllowAnonymous]
+[Authorize]
 public class FsNodesController : ApiController
 {
     private readonly ISender _mediator;
