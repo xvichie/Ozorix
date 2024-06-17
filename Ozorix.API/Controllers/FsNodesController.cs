@@ -109,7 +109,6 @@ public class FsNodesController : ApiController
     [HttpPost("writeFile")]
     public async Task<IActionResult> WriteFile([FromForm] WriteFileRequest request)
     {
-        // Manually create the command to avoid mapping issues
         var command = new WriteFileCommand(request.Path, request.File, request.UserId);
 
         var writeFileResult = await _mediator.Send(command);

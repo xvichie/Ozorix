@@ -50,7 +50,6 @@ public class S3FsService : IFsService
 
         if (objects.Any())
         {
-            // Add the directory marker for deletion
             var directoryMarker = new S3Object { Key = fullPath };
             objects.Add(directoryMarker);
 
@@ -65,7 +64,6 @@ public class S3FsService : IFsService
         var fullPath = Path.Combine(currentDirectory, path).Replace("\\", "/");
         var fullNewPath = Path.Combine(currentDirectory, newPath).Replace("\\", "/");
 
-        // Ensure paths end with a slash
         if (!fullPath.EndsWith("/"))
         {
             fullPath += "/";
@@ -174,7 +172,6 @@ public class S3FsService : IFsService
         var fullPath = NormalizePath(currentDirectory, path);
         var fullNewPath = NormalizePath(currentDirectory, newPath);
 
-        // Ensure newPath ends with a slash if it's a directory
         if (!fullNewPath.EndsWith("/"))
         {
             fullNewPath = $"{fullNewPath.TrimEnd('/')}/{Path.GetFileName(fullPath)}";
@@ -201,18 +198,14 @@ public class S3FsService : IFsService
             throw new ArgumentException("Relative path cannot be null or empty", nameof(relativePath));
         }
 
-        // Ensure basePath ends with a slash
         if (!basePath.EndsWith("/"))
         {
             basePath += "/";
         }
 
-        // Combine the base path and relative path
-        //var combinedUri = new Uri(new Uri(basePath, UriKind.RelativeOrAbsolute), relativePath);
         return Path.Combine(basePath, relativePath).Replace("\\", "/");
     }
 
-    // Ensure DeleteFile accepts userId
     public async Task DeleteFile(string path, string userId)
     {
         var currentDirectory = _userCacheService.GetCurrentDirectory(userId);
@@ -285,13 +278,11 @@ public class S3FsService : IFsService
         }
         catch (AmazonS3Exception ex)
         {
-            // Log the exception details for troubleshooting
             Console.WriteLine($"AmazonS3Exception: {ex.Message}");
             throw;
         }
         catch (Exception ex)
         {
-            // Log the exception details for troubleshooting
             Console.WriteLine($"Exception: {ex.Message}");
             throw;
         }
@@ -331,10 +322,8 @@ public class S3FsService : IFsService
         }
         catch (AmazonS3Exception ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound)
         {
-            // If the key ends with a slash, it's intended to be a folder
             if (fullPath.EndsWith("/"))
             {
-                // Check if any objects exist with this prefix
                 var listResponse = await _s3Client.ListObjectsV2Async(new ListObjectsV2Request
                 {
                     BucketName = _bucketName,

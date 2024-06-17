@@ -30,21 +30,17 @@ public class RegisterCommandHandler :
 
     public async Task<ErrorOr<AuthenticationResult>> Handle(RegisterCommand command, CancellationToken cancellationToken)
     {
-        // 1.Validate the user doesn't exist
         if (_userRepository.GetUserByEmail(command.Email) is not null)
         {
             return Errors.User.DuplicateEmail;
         }
 
-        // 2. Create user (generate unique ID) & Persist to DB
         var user = User.Create(command.FirstName, command.LastName, command.Email, command.Password);
 
         _userRepository.Add(user);
 
-        // 3. Publish the UserRegisteredDomainEvent
         await _publisher.Publish(new UserRegisteredEvent(user.Id.Value.ToString()), cancellationToken);
 
-        // 4. Create JWT token
         var token = _jwtTokenGenerator.GenerateToken(user);
 
         return new AuthenticationResult(

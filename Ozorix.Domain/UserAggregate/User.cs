@@ -24,7 +24,6 @@ public sealed class User : AggregateRoot<UserId, Guid>
 
     public static User Create(string firstName, string lastName, string email, string password)
     {
-        // TODO: enforce invariants
         return new User(
             firstName,
             lastName,

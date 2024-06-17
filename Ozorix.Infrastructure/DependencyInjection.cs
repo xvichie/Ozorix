@@ -87,11 +87,9 @@ public static class DependencyInjection
      IConfiguration configuration
  )
     {
-        // Configure AWS options from configuration
         var awsOptions = configuration.GetAWSOptions();
         services.AddDefaultAWSOptions(awsOptions);
 
-        // Register Amazon S3 client using credentials from configuration
         services.AddScoped<IAmazonS3>(provider =>
         {
             var awsAccessKey = configuration["AWS:AccessKey"];
@@ -106,7 +104,6 @@ public static class DependencyInjection
             return new AmazonS3Client(awsAccessKey, awsSecretKey, s3ClientConfig);
         });
 
-        // Register S3FsService
         services.AddScoped<IFsService, S3FsService>(provider =>
         {
             var s3Client = provider.GetRequiredService<IAmazonS3>();

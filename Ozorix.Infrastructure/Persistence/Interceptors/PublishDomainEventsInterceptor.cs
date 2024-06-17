@@ -35,21 +35,17 @@ public class PublishDomainEventsInterceptor : SaveChangesInterceptor
             return;
         }
 
-        // Get hold of all the various entities
         var entitiesWithDomainEvents = dbContext.ChangeTracker.Entries<IHasDomainEvents>()
             .Where(entry => entry.Entity.DomainEvents.Any())
             .Select(entry => entry.Entity)
             .ToList();
 
-        // Get hold of all the various domain events
         var domainEvents = entitiesWithDomainEvents
             .SelectMany(entity => entity.DomainEvents)
             .ToList();
 
-        // Clear domain events
         entitiesWithDomainEvents.ForEach(entity => entity.ClearDomainEvents());
 
-        // Publish domain events
         foreach (var domainEvent in domainEvents)
         {
             await _mediator.Publish(domainEvent);

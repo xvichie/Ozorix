@@ -38,7 +38,6 @@ public class CreateFsNodeCommandHandler : IRequestHandler<CreateFsNodeCommand, E
             );
 
         await _s3FsService.CreateDirectory(request.Path, request.UserId.ToString());
-        //await _fsNodeRepository.AddAsync(fsNode);
 
         return fsNode;
     }

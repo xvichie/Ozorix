@@ -29,19 +29,16 @@ public class LoginQueryHandler :
     {
         await Task.CompletedTask;
 
-        // 1. Validate the user exists
         if (_userRepository.GetUserByEmail(query.Email) is not User user)
         {
             return Errors.Authentication.InvalidCredentials;
         }
 
-        // 2. Validate the password is correct
         if (user.Password != query.Password)
         {
             return Errors.Authentication.InvalidCredentials;
         }
 
-        // 3. Create JWT token
         var token = _jwtTokenGenerator.GenerateToken(user);
 
         return new AuthenticationResult(
